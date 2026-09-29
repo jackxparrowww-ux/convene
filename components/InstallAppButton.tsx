@@ -17,9 +17,10 @@ export default function InstallAppButton({
   const [isInstalled, setIsInstalled] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [downloadedLauncher, setDownloadedLauncher] = useState(false);
 
   useEffect(() => {
-    // Check if already installed in standalone mode
+    // Check if running in standalone mode
     if (
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true
@@ -28,7 +29,6 @@ export default function InstallAppButton({
       return;
     }
 
-    // Detect iOS
     const ua = window.navigator.userAgent;
     const isIosDevice = /iphone|ipad|ipod/i.test(ua);
     setIsIos(isIosDevice);
@@ -69,6 +69,7 @@ export default function InstallAppButton({
         if (choice.outcome === 'accepted') {
           setIsInstalled(true);
           setDeferredPrompt(null);
+          return;
         }
       } catch {
         setShowModal(true);
@@ -76,6 +77,38 @@ export default function InstallAppButton({
     } else {
       setShowModal(true);
     }
+  };
+
+  const downloadDesktopLauncher = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    // Standalone batch launcher that opens in frameless App Window mode
+    const batContent = `@echo off
+title Convene App
+echo Starting Convene in standalone application mode...
+start msedge --app="${origin}" --window-size=1280,720 2>nul || start chrome --app="${origin}" --window-size=1280,720 2>nul || start ${origin}
+`;
+
+    const blob = new Blob([batContent], { type: 'application/x-bat' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Convene-Desktop-App.bat';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setDownloadedLauncher(true);
+    setTimeout(() => setDownloadedLauncher(false), 3000);
+  };
+
+  const launchStandaloneWindow = () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '/';
+    window.open(
+      origin,
+      'ConveneApp',
+      'location=no,menubar=no,toolbar=no,status=no,directories=no,resizable=yes,width=1280,height=720'
+    );
+    setShowModal(false);
   };
 
   if (isInstalled) {
@@ -105,9 +138,9 @@ export default function InstallAppButton({
         </button>
       )}
 
-      {/* Guide Modal if browser doesn't trigger prompt directly */}
+      {/* App Install & Download Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-ink-900 p-6 shadow-pop text-left">
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div className="flex items-center gap-2.5">
@@ -115,7 +148,7 @@ export default function InstallAppButton({
                   <DownloadIcon size={18} />
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-white">Install Convene App</h3>
+                  <h3 className="text-base font-semibold text-white">Get Convene App</h3>
                   <p className="text-xs text-zinc-400">Run Convene natively on your device</p>
                 </div>
               </div>
@@ -146,21 +179,53 @@ export default function InstallAppButton({
                   </ol>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    Convene is a high-performance Progressive Web App that runs with zero installation overhead:
-                  </p>
-                  <ol className="list-decimal space-y-2 pl-4 text-xs">
-                    <li>
-                      Click the <strong className="text-white">Install App</strong> icon (🖥️ / ⬇️) in your browser's address bar (Chrome, Edge, Brave, Opera).
-                    </li>
-                    <li>
-                      Click <strong className="text-brand-bright font-semibold">Install</strong> to add Convene to your Windows desktop, Mac dock, or mobile home screen.
-                    </li>
-                    <li>
-                      Enjoy 1-click launch with ultra-low latency hardware acceleration!
-                    </li>
-                  </ol>
+                <div className="space-y-4">
+                  {/* Option 1: Direct File Download */}
+                  <div className="rounded-xl border border-white/10 bg-ink-850 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-white">
+                          Option 1: Download Windows Desktop App
+                        </h4>
+                        <p className="mt-1 text-xs text-zinc-400">
+                          Directly downloads the standalone 1-click app launcher.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={downloadDesktopLauncher}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-xs font-semibold text-white shadow-soft hover:bg-brand-deep transition active:scale-98"
+                    >
+                      <DownloadIcon size={14} />
+                      <span>{downloadedLauncher ? 'Downloaded! Check Downloads' : 'Download Desktop App (.bat)'}</span>
+                    </button>
+                  </div>
+
+                  {/* Option 2: Browser Standalone / PWA */}
+                  <div className="rounded-xl border border-white/10 bg-ink-850 p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-white">
+                      Option 2: Install via Browser (Chrome / Edge / Brave)
+                    </h4>
+                    <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
+                      Click the <strong className="text-white">Install</strong> icon (🖥️ or ⬇️) in your address bar, or click below to launch standalone window:
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={launchStandaloneWindow}
+                        className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-200 hover:bg-white/10 hover:text-white transition"
+                      >
+                        Launch Standalone Window
+                      </button>
+                      {deferredPrompt && (
+                        <button
+                          onClick={handleInstallClick}
+                          className="flex-1 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-deep transition"
+                        >
+                          Install PWA
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -168,9 +233,9 @@ export default function InstallAppButton({
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowModal(false)}
-                className="rounded-full bg-brand px-6 py-2 text-xs font-semibold text-white hover:bg-brand-deep transition"
+                className="rounded-full border border-white/10 px-5 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition"
               >
-                Got it
+                Close
               </button>
             </div>
           </div>

@@ -84,6 +84,28 @@ app.prepare().then(() => {
         }
       }
 
+      // Serve Web App Manifest
+      if (req.url === '/manifest.json') {
+        const manifestPath = path.join(__dirname, 'public', 'manifest.json');
+        if (fs.existsSync(manifestPath)) {
+          res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+          res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+          fs.createReadStream(manifestPath).pipe(res);
+          return;
+        }
+      }
+
+      // Serve PWA icons
+      if (req.url === '/icon-192.png' || req.url === '/icon-512.png') {
+        const iconPath = path.join(__dirname, 'public', req.url.slice(1));
+        if (fs.existsSync(iconPath)) {
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          fs.createReadStream(iconPath).pipe(res);
+          return;
+        }
+      }
+
       // Baseline security headers on every response.
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
