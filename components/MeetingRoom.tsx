@@ -473,21 +473,6 @@ export default function MeetingRoom({
     );
   }
 
-  if (api.status === 'connecting') {
-    return (
-      <div className="flex h-dvh flex-col items-center justify-center bg-ink-950 px-4 text-center">
-        <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-brand" />
-        <p className="mt-5 text-sm font-medium text-zinc-300">Joining meeting…</p>
-        <p className="mt-1 text-xs text-zinc-500">Connecting to real-time mesh signaling...</p>
-        <button
-          onClick={onExit}
-          className="mt-6 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-400 hover:bg-white/10 hover:text-white transition"
-        >
-          Cancel & Return
-        </button>
-      </div>
-    );
-  }
 
   const screensActive = screenOwners.length > 0;
   const mainScreen =
@@ -526,12 +511,17 @@ export default function MeetingRoom({
               <CopyIcon size={13} className="shrink-0" />
             )}
           </button>
-          {joinedAt !== null && (
+          {api.status === 'connecting' ? (
+            <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand soft-pulse" />
+              <span className="hidden sm:inline">Connecting…</span>
+            </span>
+          ) : joinedAt !== null ? (
             <span className="hidden items-center gap-1.5 text-xs tabular-nums text-zinc-400 sm:flex">
               <ClockIcon size={14} />
               {formatElapsed(Math.floor((now - joinedAt) / 1000))}
             </span>
-          )}
+          ) : null}
 
           {/* Recording Badge */}
           {recording && (

@@ -250,6 +250,30 @@ export function useMeeting(opts: JoinOpts) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.localStream]);
 
+  // When media resolves asynchronously (e.g. instant 1-click meeting start), attach tracks immediately
+  useEffect(() => {
+    localStreamRef.current = opts.localStream;
+    hasMediaRef.current = !!opts.localStream;
+    if (opts.localStream) {
+      for (const peer of peersRef.current.values()) {
+        const stream = opts.localStream;
+        const senders = peer.pc.getSenders();
+        for (const track of stream.getTracks()) {
+          const existing = senders.find((s) => s.track?.kind === track.kind);
+          if (existing) {
+            existing.replaceTrack(track).catch(() => undefined);
+          } else {
+            try {
+              peer.pc.addTrack(track, stream);
+            } catch {}
+          }
+        }
+      }
+      emitState();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opts.localStream]);
+
   // ================= helpers =================
 
   const notify = (text: string) => {
@@ -830,10 +854,10 @@ export function useMeeting(opts: JoinOpts) {
       transports: ['websocket', 'polling'],
       upgrade: true,
       reconnection: true,
-      reconnectionAttempts: 20,
-      reconnectionDelay: 400,
-      reconnectionDelayMax: 1500,
-      timeout: 8000,
+      reconnectionAttempts: 30,
+      reconnectionDelay: 100,
+      reconnectionDelayMax: 600,
+      timeout: 4000,
       forceNew: true,
     });
     socketRef.current = socket;
