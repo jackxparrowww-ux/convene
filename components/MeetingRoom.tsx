@@ -8,6 +8,7 @@ import VideoTile from './VideoTile';
 import ControlBar from './ControlBar';
 import SidePanel from './SidePanel';
 import DeviceSettingsModal from './DeviceSettingsModal';
+import InstallAppButton from './InstallAppButton';
 import {
   LogoMark,
   CopyIcon,
@@ -854,6 +855,7 @@ export default function MeetingRoom({
         onCancel={() => setConfirm(null)}
       />
 
+      <InstallAppButton variant="floating" />
       <ToastStack toasts={api.toasts} />
     </div>
   );

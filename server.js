@@ -71,6 +71,19 @@ app.prepare().then(() => {
       if (req.url && req.url.startsWith('/socket.io/')) {
         return;
       }
+
+      // Serve Service Worker with root scope and fresh cache headers
+      if (req.url === '/sw.js') {
+        const swPath = path.join(__dirname, 'public', 'sw.js');
+        if (fs.existsSync(swPath)) {
+          res.setHeader('Content-Type', 'application/javascript');
+          res.setHeader('Service-Worker-Allowed', '/');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          fs.createReadStream(swPath).pipe(res);
+          return;
+        }
+      }
+
       // Baseline security headers on every response.
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -83,7 +96,9 @@ app.prepare().then(() => {
           "img-src 'self' data: blob:; " +
           "media-src 'self' blob:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' ws: wss:;"
+          "worker-src 'self' blob:; " +
+          "manifest-src 'self'; " +
+          "connect-src 'self' ws: wss: https:;"
       );
       const parsedUrl = parse(req.url, true);
       await handle(req, res, parsedUrl);

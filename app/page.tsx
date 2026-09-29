@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import InstallAppButton from '@/components/InstallAppButton';
 import {
   LogoMark,
   MicIcon,
@@ -17,6 +18,11 @@ import {
   ZapIcon,
   LinkIcon,
   CheckIcon,
+  DownloadIcon,
+  CaptionsIcon,
+  RecordIcon,
+  NotesIcon,
+  SettingsIcon,
 } from '@/components/icons';
 
 function makeRoomId() {
@@ -164,6 +170,7 @@ export default function LandingPage() {
           </a>
         </nav>
         <div className="flex items-center gap-3">
+          <InstallAppButton variant="header" />
           <button
             onClick={() =>
               document
@@ -199,6 +206,7 @@ export default function LandingPage() {
             <p className="mt-5 max-w-md text-[17px] leading-relaxed text-zinc-400">
               Zero downloads. Zero accounts. Free in-browser recording, live speech captions, real-time collaborative notes, and 1-click instant join faster than Google Meet.
             </p>
+            {/* Hero CTA buttons */}
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
                 onClick={startInstantMeeting}
@@ -229,8 +237,14 @@ export default function LandingPage() {
                 </button>
               </div>
             </div>
+
+            {/* Install App CTA Banner */}
+            <div className="mt-4">
+              <InstallAppButton variant="hero" />
+            </div>
+
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-500">
-              {['No downloads', 'No sign-up for guests', 'Free to host'].map(
+              {['1-Click instant start', 'Download as Desktop/Mobile app', 'In-call recording', 'Live closed captions'].map(
                 (t) => (
                   <span key={t} className="flex items-center gap-1.5">
                     <CheckIcon size={15} className="text-brand" />
@@ -249,38 +263,53 @@ export default function LandingPage() {
             FEATURES
           </p>
           <h2 className="max-w-xl text-3xl font-semibold tracking-tight text-white">
-            Everything a meeting needs. Nothing it doesn't.
+            Everything a meeting needs. Built for maximum speed.
           </h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Feature
-              icon={<CamIcon size={22} />}
-              title="Crisp video, zero setup"
-              body="Join from any modern browser. Grid and speaker views, pin anyone, and a live speaking indicator that follows the conversation."
+              icon={<ZapIcon size={22} />}
+              title="1-Click Instant Start"
+              body="No waiting, no cold starts. Click instant meeting and your room is ready in under 200ms with automatic media initialization."
+            />
+            <Feature
+              icon={<DownloadIcon size={22} />}
+              title="Install Directly from Website"
+              body="Download Convene to your Windows desktop, Mac dock, or mobile device directly from your browser. Full standalone PWA experience."
+            />
+            <Feature
+              icon={<RecordIcon size={22} />}
+              title="Built-in Meeting Recording"
+              body="Record your meetings and presentations directly in-browser with zero third-party software. Automatically downloads as WebM."
+            />
+            <Feature
+              icon={<CaptionsIcon size={22} />}
+              title="Live Closed Captions"
+              body="Real-time speech-to-text transcription powered by browser speech recognition. Floating subtitles with participant names."
+            />
+            <Feature
+              icon={<NotesIcon size={22} />}
+              title="Collaborative Meeting Notes"
+              body="Synchronized notepad right in your meeting side-panel. Take meeting minutes together and 1-click copy when done."
             />
             <Feature
               icon={<ScreenIcon size={22} />}
-              title="Screen sharing"
-              body="Present your full screen or a single window. Shared content takes the stage; everyone else moves to a filmstrip."
+              title="Screen Sharing & PiP"
+              body="Present full screen, individual tabs, or windows. Multitask freely with native Picture-in-Picture mode."
             />
             <Feature
-              icon={<ChatIcon size={22} />}
-              title="In-call chat"
-              body="A side-panel chat runs alongside every call. Drop links, notes, and follow-ups without interrupting the speaker."
-            />
-            <Feature
-              icon={<SmileIcon size={22} />}
-              title="Reactions & raise hand"
-              body="React with emoji that float up from your tile. Raise your hand to get noticed — hosts see everyone in order."
+              icon={<SettingsIcon size={22} />}
+              title="Mid-Call Device Switcher"
+              body="Seamlessly switch microphones, webcams, and speakers during the call without reloading or dropping your session."
             />
             <Feature
               icon={<UsersIcon size={22} />}
-              title="Host controls"
+              title="Host Controls"
               body="The meeting creator can mute everyone, mute or remove individuals, lower hands, and end the meeting for all."
             />
             <Feature
               icon={<ShieldIcon size={22} />}
-              title="Peer-to-peer media"
-              body="Media travels directly between participants over encrypted peer-to-peer connections. No accounts needed for guests."
+              title="Encrypted Peer-to-Peer Media"
+              body="Audio and video travel directly between participants over encrypted WebRTC mesh. Ultra-low latency and zero data middleman."
             />
           </div>
         </section>

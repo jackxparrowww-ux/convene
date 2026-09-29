@@ -23,6 +23,7 @@ import {
   SettingsIcon,
   NotesIcon,
   PipIcon,
+  DownloadIcon,
 } from './icons';
 import { IconButton } from './ui';
 
@@ -244,6 +245,14 @@ export default function ControlBar(p: BarProps) {
                 }}
               />
             )}
+            <MenuItem
+              icon={<DownloadIcon size={17} />}
+              label="Download Convene app"
+              onClick={() => {
+                setMoreOpen(false);
+                window.dispatchEvent(new CustomEvent('convene-install-app'));
+              }}
+            />
             <MenuItem
               icon={<CopyIcon size={17} />}
               label="Copy invite link"
