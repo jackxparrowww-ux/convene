@@ -18,6 +18,11 @@ import {
   CopyIcon,
   GridIcon,
   SpeakerViewIcon,
+  CaptionsIcon,
+  RecordIcon,
+  SettingsIcon,
+  NotesIcon,
+  PipIcon,
 } from './icons';
 import { IconButton } from './ui';
 
@@ -34,6 +39,14 @@ interface BarProps {
   onToggleScreen: () => void;
   onToggleHand: () => void;
   onSendReaction: (emoji: string) => void;
+  captionsOn: boolean;
+  onToggleCaptions: () => void;
+  recording: boolean;
+  onToggleRecording: () => void;
+  onOpenSettings: () => void;
+  onTogglePip?: () => void;
+  notesOpen: boolean;
+  onToggleNotes: () => void;
   peopleOpen: boolean;
   onTogglePeople: () => void;
   handCount: number;
@@ -139,12 +152,28 @@ export default function ControlBar(p: BarProps) {
           </IconButton>
 
           <IconButton
+            label={p.captionsOn ? 'Turn off captions (c)' : 'Turn on captions (c)'}
+            onClick={p.onToggleCaptions}
+            active={p.captionsOn}
+          >
+            <CaptionsIcon size={20} />
+          </IconButton>
+
+          <IconButton
             label="Chat"
             onClick={p.onToggleChat}
             active={p.chatOpen}
             badge={p.unread}
           >
             <ChatIcon size={20} />
+          </IconButton>
+
+          <IconButton
+            label="Meeting notes"
+            onClick={p.onToggleNotes}
+            active={p.notesOpen}
+          >
+            <NotesIcon size={20} />
           </IconButton>
 
           <IconButton
@@ -187,7 +216,34 @@ export default function ControlBar(p: BarProps) {
 
         {/* More menu — outside the scrollable pill so it can't be clipped */}
         {moreOpen && (
-          <div className="absolute bottom-[calc(100%+10px)] right-0 z-50 w-60 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-ink-850 py-1.5 shadow-pop animate-slide-up">
+          <div className="absolute bottom-[calc(100%+10px)] right-0 z-50 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-ink-850 py-1.5 shadow-pop animate-slide-up">
+            <MenuItem
+              icon={<RecordIcon size={17} recording={p.recording} className={p.recording ? 'text-red-500' : ''} />}
+              label={p.recording ? 'Stop recording' : 'Record meeting'}
+              danger={p.recording}
+              onClick={() => {
+                p.onToggleRecording();
+                setMoreOpen(false);
+              }}
+            />
+            <MenuItem
+              icon={<SettingsIcon size={17} />}
+              label="Audio & video settings"
+              onClick={() => {
+                p.onOpenSettings();
+                setMoreOpen(false);
+              }}
+            />
+            {p.onTogglePip && (
+              <MenuItem
+                icon={<PipIcon size={17} />}
+                label="Picture-in-picture"
+                onClick={() => {
+                  p.onTogglePip?.();
+                  setMoreOpen(false);
+                }}
+              />
+            )}
             <MenuItem
               icon={<CopyIcon size={17} />}
               label="Copy invite link"

@@ -12,6 +12,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
+import {
+  playJoinSound,
+  playLeaveSound,
+  playMessageSound,
+  playHandSound,
+} from '@/components/sounds';
 
 export interface RemoteParticipant {
   id: string;
@@ -31,6 +37,14 @@ export interface ChatMessage {
   text: string;
   ts: number;
   mine: boolean;
+}
+
+export interface CaptionItem {
+  id: string;
+  from: string;
+  name: string;
+  text: string;
+  ts: number;
 }
 
 export interface ReactionBurst {
@@ -133,6 +147,11 @@ export function useMeeting(opts: JoinOpts) {
   const [layout, setLayout] = useState<'grid' | 'speaker'>('grid');
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [captions, setCaptions] = useState<CaptionItem[]>([]);
+  const [notes, setNotes] = useState<string>('');
+  const [activeMicId, setActiveMicId] = useState<string>('');
+  const [activeCamId, setActiveCamId] = useState<string>('');
 
   // ---- refs (stable handles for socket callbacks) ----
   const socketRef = useRef<Socket | null>(null);
@@ -644,6 +663,96 @@ export function useMeeting(opts: JoinOpts) {
 
   const markChatRead = () => setUnread(0);
 
+  const sendCaption = (text: string) => {
+    const clean = text.trim();
+    if (!clean) return;
+    const item: CaptionItem = {
+      id: `cap-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      from: selfIdRef.current,
+      name: nameRef.current,
+      text: clean,
+      ts: Date.now(),
+    };
+    setCaptions((prev) => [...prev.slice(-3), item]);
+    socketRef.current?.emit('caption', { text: clean });
+    window.setTimeout(() => {
+      setCaptions((prev) => prev.filter((c) => c.id !== item.id));
+    }, 4500);
+  };
+
+  const updateNotes = (text: string) => {
+    setNotes(text);
+    socketRef.current?.emit('notes-update', { text });
+  };
+
+  const switchMic = async (deviceId: string) => {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+      });
+      const newTrack = newStream.getAudioTracks()[0];
+      if (!newTrack) return;
+      newTrack.enabled = audioOnRef.current;
+
+      const current = localStreamRef.current;
+      if (current) {
+        const oldTrack = current.getAudioTracks()[0];
+        if (oldTrack) {
+          current.removeTrack(oldTrack);
+          oldTrack.stop();
+        }
+        current.addTrack(newTrack);
+      }
+
+      for (const peer of peersRef.current.values()) {
+        const sender = peer.pc.getSenders().find((s) => s.track?.kind === 'audio');
+        if (sender) {
+          await sender.replaceTrack(newTrack);
+        }
+      }
+      setActiveMicId(deviceId);
+      notify('Microphone switched');
+    } catch {
+      notify('Failed to switch microphone');
+    }
+  };
+
+  const switchCam = async (deviceId: string) => {
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) return;
+      newTrack.enabled = videoOnRef.current;
+
+      const current = localStreamRef.current;
+      if (current) {
+        const oldTrack = current.getVideoTracks()[0];
+        if (oldTrack) {
+          current.removeTrack(oldTrack);
+          oldTrack.stop();
+        }
+        current.addTrack(newTrack);
+      }
+
+      for (const peer of peersRef.current.values()) {
+        const sender = peer.pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newTrack);
+        }
+      }
+      setActiveCamId(deviceId);
+      notify('Camera switched');
+    } catch {
+      notify('Failed to switch camera');
+    }
+  };
+
   // ---- host actions ----
   const isHost = hostId !== null && hostId === selfId;
 
@@ -788,6 +897,7 @@ export function useMeeting(opts: JoinOpts) {
     socket.on('user-joined', (data: { participant: RemoteParticipant; hostId: string | null }) => {
       const L = logicRef.current;
       if (data.participant.id === socket.id) return;
+      playJoinSound();
       L.setRemoteEntry(data.participant);
       setHostId(data.hostId);
       L.notify(`${data.participant.name} joined`);
@@ -802,6 +912,7 @@ export function useMeeting(opts: JoinOpts) {
     socket.on('user-left', (data: { id: string }) => {
       const L = logicRef.current;
       const name = remotesRef.current[data.id]?.name ?? 'Someone';
+      playLeaveSound();
       L.cleanupPeer(data.id);
       L.removeRemoteEntry(data.id);
       L.notify(`${name} left`);
@@ -811,10 +922,11 @@ export function useMeeting(opts: JoinOpts) {
       const L = logicRef.current;
       const p = data.participant;
       if (p.id === socket.id) return;
-      L.setRemoteEntry(p);
-      if (!p.hand && handRef.current === false) {
-        // no-op; hand state is per-participant
+      const oldP = remotesRef.current[p.id];
+      if (p.hand && (!oldP || !oldP.hand)) {
+        playHandSound();
       }
+      L.setRemoteEntry(p);
       // If they stopped sharing, drop the screen tile promptly.
       if (!p.screen) {
         setRemoteScreens((s) => {
@@ -832,8 +944,20 @@ export function useMeeting(opts: JoinOpts) {
 
     socket.on('chat-message', (msg: { id: string; from: string; name: string; text: string; ts: number }) => {
       const mine = msg.from === selfIdRef.current;
+      if (!mine) playMessageSound();
       setChat((c) => [...c.slice(-199), { ...msg, mine }]);
       if (!mine && !chatOpenRef.current) setUnread((u) => u + 1);
+    });
+
+    socket.on('caption', (data: CaptionItem) => {
+      setCaptions((prev) => [...prev.slice(-3), data]);
+      window.setTimeout(() => {
+        setCaptions((prev) => prev.filter((c) => c.id !== data.id));
+      }, 4500);
+    });
+
+    socket.on('notes-update', (data: { text: string }) => {
+      setNotes(data.text);
     });
 
     socket.on('reaction', (r: { id: string; from: string; name: string; emoji: string }) => {
@@ -991,6 +1115,16 @@ export function useMeeting(opts: JoinOpts) {
     setPeopleOpen,
     chatOpen,
     setChatOpen,
+    notesOpen,
+    setNotesOpen,
+    captions,
+    sendCaption,
+    notes,
+    updateNotes,
+    switchMic,
+    switchCam,
+    activeMicId,
+    activeCamId,
     hasMedia: hasMediaRef.current,
     toggleAudio,
     toggleVideo,

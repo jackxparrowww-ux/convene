@@ -276,6 +276,31 @@ app.prepare().then(() => {
       });
     });
 
+    // ---- Live Captions --------------------------------------------------
+    socket.on('caption', ({ text }) => {
+      const room = roomOf();
+      if (!room || !inRoom()) return;
+      const clean = String(text || '').slice(0, 500);
+      if (!clean.trim()) return;
+      const p = room.participants.get(socket.id);
+      socket.to(currentRoom).emit('caption', {
+        id: `${Date.now()}-${socket.id}`,
+        from: socket.id,
+        name: p ? p.name : 'Guest',
+        text: clean,
+        ts: Date.now(),
+      });
+    });
+
+    // ---- Collaborative Notes --------------------------------------------
+    socket.on('notes-update', ({ text }) => {
+      const room = roomOf();
+      if (!room || !inRoom()) return;
+      const clean = String(text || '').slice(0, 10000);
+      room.notes = clean;
+      socket.to(currentRoom).emit('notes-update', { text: clean });
+    });
+
     // ---- Host controls ---------------------------------------------------
     socket.on('mute-all', () => {
       if (!isHost() || !currentRoom) return;

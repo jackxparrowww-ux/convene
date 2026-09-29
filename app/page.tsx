@@ -133,6 +133,8 @@ export default function LandingPage() {
   const router = useRouter();
   const [code, setCode] = useState('');
 
+  const startInstantMeeting = () =>
+    router.push(`/room/${makeRoomId()}?instant=1#host=${makeHostKey()}`);
   const startMeeting = () =>
     router.push(`/room/${makeRoomId()}#host=${makeHostKey()}`);
   const joinWithCode = () => {
@@ -170,13 +172,13 @@ export default function LandingPage() {
             }
             className="hidden rounded-full px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white sm:block"
           >
-            Join a meeting
+            Join with code
           </button>
           <button
-            onClick={startMeeting}
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-deep active:scale-[0.98]"
+            onClick={startInstantMeeting}
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-soft transition-all hover:bg-brand-deep active:scale-[0.98]"
           >
-            Start a meeting
+            Instant meeting ⚡
           </button>
         </div>
       </header>
@@ -187,26 +189,30 @@ export default function LandingPage() {
           <div>
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-medium tracking-wide text-zinc-300">
               <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-              BROWSER-BASED VIDEO MEETINGS
+              ULTRA-FAST BROWSER VIDEO MEETINGS
             </p>
             <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
-              Meet face to face,
+              Meet instantly,
               <br />
-              from anywhere.
+              better than Meet.
             </h1>
             <p className="mt-5 max-w-md text-[17px] leading-relaxed text-zinc-400">
-              Convene is video conferencing that lives in your browser. No
-              downloads, no accounts for guests — create a meeting, share the
-              link, and talk in seconds.
+              Zero downloads. Zero accounts. Free in-browser recording, live speech captions, real-time collaborative notes, and 1-click instant join faster than Google Meet.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
-                onClick={startMeeting}
-                className="rounded-full bg-brand px-7 py-3.5 text-[15px] font-semibold text-white transition-all hover:bg-brand-deep active:scale-[0.98]"
+                onClick={startInstantMeeting}
+                className="flex items-center gap-2 rounded-full bg-brand px-7 py-3.5 text-[15px] font-semibold text-white shadow-soft transition-all hover:bg-brand-deep active:scale-[0.98]"
               >
-                Start a meeting
+                <span>⚡</span> Start instant meeting
               </button>
-              <div className="flex items-center gap-2">
+              <button
+                onClick={startMeeting}
+                className="rounded-full border border-white/15 bg-white/5 px-6 py-3.5 text-[15px] font-medium text-zinc-200 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white active:scale-[0.98]"
+              >
+                Preview with green room
+              </button>
+              <div className="flex items-center gap-2 mt-1 sm:mt-0">
                 <input
                   id="join-code"
                   value={code}

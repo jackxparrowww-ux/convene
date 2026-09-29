@@ -339,3 +339,83 @@ export const SpeakerIcon = (p: IconProps) =>
       </>
     ),
   });
+
+export const CaptionsIcon = (p: IconProps) =>
+  base({
+    ...p,
+    children: (
+      <>
+        <rect x="2.5" y="4.5" width="19" height="15" rx="3" />
+        <path d="M10 10.5H7.5a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2H10" />
+        <path d="M18.5 10.5H16a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h2.5" />
+      </>
+    ),
+  });
+
+export const RecordIcon = (p: IconProps & { recording?: boolean }) => (
+  <svg
+    width={p.size || 20}
+    height={p.size || 20}
+    viewBox="0 0 24 24"
+    fill="none"
+    className={p.className}
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth={p.strokeWidth || 1.8} />
+    <circle
+      cx="12"
+      cy="12"
+      r={p.recording ? "4.5" : "5"}
+      fill={p.recording ? "#ef4444" : "currentColor"}
+      className={p.recording ? "animate-pulse" : ""}
+    />
+  </svg>
+);
+
+export const SettingsIcon = (p: IconProps) =>
+  base({
+    ...p,
+    children: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </>
+    ),
+  });
+
+export const NotesIcon = (p: IconProps) =>
+  base({
+    ...p,
+    children: (
+      <>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+        <path d="M10 9H8" />
+      </>
+    ),
+  });
+
+export const PipIcon = (p: IconProps) =>
+  base({
+    ...p,
+    children: (
+      <>
+        <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+        <rect x="12" y="11" width="7" height="6" rx="1.5" fill="currentColor" opacity="0.3" />
+        <rect x="12" y="11" width="7" height="6" rx="1.5" />
+      </>
+    ),
+  });
+
+export const KeyboardIcon = (p: IconProps) =>
+  base({
+    ...p,
+    children: (
+      <>
+        <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+        <path d="M7 10h.01M10 10h.01M14 10h.01M17 10h.01M6 14h12" />
+      </>
+    ),
+  });

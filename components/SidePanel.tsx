@@ -19,8 +19,8 @@ import type {
 interface PanelProps {
   api: MeetingApi;
   selfName: string;
-  tab: 'people' | 'chat';
-  setTab: (t: 'people' | 'chat') => void;
+  tab: 'people' | 'chat' | 'notes';
+  setTab: (t: 'people' | 'chat' | 'notes') => void;
   onClose: () => void;
   onConfirmRemove: (id: string, name: string) => void;
   onConfirmMuteAll: () => void;
@@ -45,7 +45,7 @@ export default function SidePanel({
         inset-x-0 bottom-0 top-[12%] rounded-t-3xl border-t
         md:inset-x-auto md:bottom-24 md:right-4 md:top-20 md:w-[340px] md:rounded-2xl md:border"
       role="complementary"
-      aria-label={tab === 'people' ? 'Participants' : 'Meeting chat'}
+      aria-label={tab === 'people' ? 'Participants' : tab === 'chat' ? 'Meeting chat' : 'Meeting notes'}
     >
       {/* grab handle (mobile) */}
       <div className="flex justify-center pt-2.5 md:hidden" aria-hidden="true">
@@ -53,7 +53,7 @@ export default function SidePanel({
       </div>
       {/* tabs */}
       <div className="flex items-center justify-between border-b border-white/[0.07] px-4 pb-0 pt-1">
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto">
           <TabButton
             active={tab === 'people'}
             onClick={() => setTab('people')}
@@ -64,6 +64,11 @@ export default function SidePanel({
             onClick={() => setTab('chat')}
             label="Chat"
             badge={api.unread}
+          />
+          <TabButton
+            active={tab === 'notes'}
+            onClick={() => setTab('notes')}
+            label="Notes"
           />
         </div>
         <CloseButton onClick={onClose} label="Close panel" />
@@ -77,8 +82,10 @@ export default function SidePanel({
             onConfirmRemove={onConfirmRemove}
             onConfirmMuteAll={onConfirmMuteAll}
           />
-        ) : (
+        ) : tab === 'chat' ? (
           <ChatTab api={api} />
+        ) : (
+          <NotesTab api={api} />
         )}
       </div>
     </div>
@@ -395,6 +402,48 @@ function ChatTab({ api }: { api: MeetingApi }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function NotesTab({ api }: { api: MeetingApi }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyNotes = async () => {
+    if (!api.notes) return;
+    try {
+      await navigator.clipboard.writeText(api.notes);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          Shared Meeting Notes
+        </span>
+        <button
+          onClick={copyNotes}
+          disabled={!api.notes.trim()}
+          className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white transition disabled:opacity-40"
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <p className="mb-3 text-xs text-zinc-500">
+        Changes sync in real-time across everyone in this meeting.
+      </p>
+      <textarea
+        value={api.notes}
+        onChange={(e) => api.updateNotes(e.target.value)}
+        placeholder="Type agenda, action items, or notes here... Everyone in the meeting can see and edit."
+        maxLength={10000}
+        className="min-h-0 flex-1 resize-none rounded-xl border border-white/10 bg-ink-850 p-3.5 font-mono text-xs leading-relaxed text-zinc-200 placeholder:text-zinc-600 outline-none focus:border-brand/60"
+      />
     </div>
   );
 }

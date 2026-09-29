@@ -1,12 +1,13 @@
 'use client';
 
-/** In-call experience: stage (grid / speaker / screen-share), header, dock, panels. */
+/** In-call experience: stage (grid / speaker / screen-share), header, dock, panels, recording, live captions, device settings. */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useMeeting } from '@/hooks/useMeeting';
 import VideoTile from './VideoTile';
 import ControlBar from './ControlBar';
 import SidePanel from './SidePanel';
+import DeviceSettingsModal from './DeviceSettingsModal';
 import {
   LogoMark,
   CopyIcon,
@@ -14,6 +15,7 @@ import {
   GridIcon,
   SpeakerViewIcon,
   ClockIcon,
+  XIcon,
 } from './icons';
 import { ConfirmDialog, ToastStack } from './ui';
 
@@ -67,12 +69,26 @@ export default function MeetingRoom({
   const [confirm, setConfirm] = useState<ConfirmState>(null);
   const [copied, setCopied] = useState(false);
   const [joinedAt, setJoinedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(0);
+  const [inviteLink, setInviteLink] = useState('');
 
-  const inviteLink =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/room/${roomId}`
-      : '';
+  // Additional Google Meet-style features
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [captionsOn, setCaptionsOn] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [showReadyCard, setShowReadyCard] = useState(true);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordStreamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setInviteLink(`${window.location.origin}/room/${roomId}`);
+      setNow(Date.now());
+    }
+  }, [roomId]);
 
   useEffect(() => {
     if (api.status === 'in-call' && joinedAt === null) setJoinedAt(Date.now());
@@ -84,7 +100,17 @@ export default function MeetingRoom({
     return () => window.clearInterval(t);
   }, [joinedAt]);
 
-  const copyInvite = async () => {
+  // Recording timer
+  useEffect(() => {
+    if (!recording) {
+      setRecordSeconds(0);
+      return;
+    }
+    const t = window.setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [recording]);
+
+  const copyInvite = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(inviteLink);
     } catch {
@@ -98,7 +124,196 @@ export default function MeetingRoom({
     setCopied(true);
     api.notify('Invite link copied to clipboard');
     window.setTimeout(() => setCopied(false), 2000);
+  }, [inviteLink, api]);
+
+  // ---------- Live Captions (Speech Recognition) ----------
+  useEffect(() => {
+    if (!captionsOn) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+        recognitionRef.current = null;
+      }
+      return;
+    }
+
+    const SpeechRec =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRec) {
+      api.notify('Live captions require Chrome, Edge, or Safari');
+      setCaptionsOn(false);
+      return;
+    }
+
+    const rec = new SpeechRec();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+
+    rec.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          const transcript = event.results[i][0].transcript.trim();
+          if (transcript) {
+            api.sendCaption(transcript);
+          }
+        }
+      }
+    };
+
+    rec.onerror = (e: any) => {
+      if (e.error !== 'no-speech') {
+        console.warn('[Captions error]', e);
+      }
+    };
+
+    rec.onend = () => {
+      if (captionsOn && recognitionRef.current) {
+        try {
+          rec.start();
+        } catch {}
+      }
+    };
+
+    try {
+      rec.start();
+      recognitionRef.current = rec;
+      api.notify('Live captions turned on');
+    } catch {
+      setCaptionsOn(false);
+    }
+
+    return () => {
+      try {
+        rec.stop();
+      } catch {}
+      recognitionRef.current = null;
+    };
+  }, [captionsOn, api]);
+
+  const toggleCaptions = () => {
+    setCaptionsOn((prev) => !prev);
   };
+
+  // ---------- In-Call Recording (MediaRecorder) ----------
+  const toggleRecording = async () => {
+    if (recording) {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      if (recordStreamRef.current) {
+        recordStreamRef.current.getTracks().forEach((t) => t.stop());
+        recordStreamRef.current = null;
+      }
+      setRecording(false);
+      return;
+    }
+
+    try {
+      const recStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'browser' },
+        audio: true,
+      });
+      recordStreamRef.current = recStream;
+
+      const chunks: Blob[] = [];
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+        ? 'video/webm;codecs=vp9,opus'
+        : 'video/webm';
+
+      const recorder = new MediaRecorder(recStream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Convene-Meeting-${roomId}-${Date.now()}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        api.notify('Meeting recording saved to Downloads');
+        setRecording(false);
+      };
+
+      recStream.getVideoTracks()[0].onended = () => {
+        if (recorder.state !== 'inactive') recorder.stop();
+      };
+
+      recorder.start(1000);
+      setRecording(true);
+      api.notify('Recording started');
+    } catch {
+      api.notify('Recording cancelled or screen share denied');
+    }
+  };
+
+  // ---------- Picture-in-Picture ----------
+  const togglePip = async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        const videoEl = document.querySelector('video');
+        if (videoEl && videoEl.readyState >= 2) {
+          await videoEl.requestPictureInPicture();
+          api.notify('Picture-in-picture activated');
+        } else {
+          api.notify('No active video stream for Picture-in-Picture');
+        }
+      }
+    } catch {
+      api.notify('Picture-in-Picture not supported or active');
+    }
+  };
+
+  // ---------- Keyboard Shortcuts (Google Meet style) ----------
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      // Ctrl+D or D: toggle audio
+      if ((e.ctrlKey || e.metaKey || !e.altKey) && key === 'd') {
+        e.preventDefault();
+        api.toggleAudio();
+      }
+      // Ctrl+E or E: toggle video
+      else if ((e.ctrlKey || e.metaKey || !e.altKey) && key === 'e') {
+        e.preventDefault();
+        api.toggleVideo();
+      }
+      // C: toggle captions
+      else if (key === 'c' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        toggleCaptions();
+      }
+      // H: toggle hand
+      else if (key === 'h' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        api.toggleHand();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [api]);
 
   // ---------- derived tile data ----------
   const videoTiles = useMemo(
@@ -190,25 +405,41 @@ export default function MeetingRoom({
     />
   );
 
-  const panelOpen = api.peopleOpen || api.chatOpen;
-  const panelTab = api.chatOpen ? 'chat' : 'people';
+  const panelOpen = api.peopleOpen || api.chatOpen || api.notesOpen;
+  const panelTab: 'people' | 'chat' | 'notes' = api.notesOpen
+    ? 'notes'
+    : api.chatOpen
+      ? 'chat'
+      : 'people';
 
   const togglePeople = () => {
-    if (api.chatOpen) {
-      api.setChatOpen(false);
-      api.setPeopleOpen(true);
-    } else {
-      api.setPeopleOpen(!api.peopleOpen);
-    }
-  };
-  const toggleChat = () => {
     if (api.peopleOpen) {
       api.setPeopleOpen(false);
-      api.setChatOpen(true);
     } else {
-      const next = !api.chatOpen;
-      api.setChatOpen(next);
-      if (next) api.markChatRead();
+      api.setChatOpen(false);
+      api.setNotesOpen(false);
+      api.setPeopleOpen(true);
+    }
+  };
+
+  const toggleChat = () => {
+    if (api.chatOpen) {
+      api.setChatOpen(false);
+    } else {
+      api.setPeopleOpen(false);
+      api.setNotesOpen(false);
+      api.setChatOpen(true);
+      api.markChatRead();
+    }
+  };
+
+  const toggleNotes = () => {
+    if (api.notesOpen) {
+      api.setNotesOpen(false);
+    } else {
+      api.setPeopleOpen(false);
+      api.setChatOpen(false);
+      api.setNotesOpen(true);
     }
   };
 
@@ -300,7 +531,16 @@ export default function MeetingRoom({
               {formatElapsed(Math.floor((now - joinedAt) / 1000))}
             </span>
           )}
+
+          {/* Recording Badge */}
+          {recording && (
+            <div className="flex items-center gap-1.5 rounded-full bg-red-500/15 border border-red-500/30 px-3 py-1 text-xs font-semibold text-red-400 animate-pulse">
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              <span>REC {formatElapsed(recordSeconds)}</span>
+            </div>
+          )}
         </div>
+
         <div className="flex items-center gap-2">
           {!screensActive && (
             <div className="flex rounded-full bg-ink-800 p-1">
@@ -411,20 +651,66 @@ export default function MeetingRoom({
           </div>
         )}
 
-        {/* first-here empty state */}
-        {api.status === 'in-call' && videoTiles.length === 1 && (
-          <div className="pointer-events-none absolute inset-x-0 top-4 z-30 flex justify-center px-4">
-            <div className="pointer-events-auto flex max-w-full items-center gap-3 rounded-full border border-white/10 bg-ink-900/95 py-2.5 pl-5 pr-2.5 text-sm text-zinc-200 shadow-pop backdrop-blur animate-slide-up">
-              <span className="shrink-0 whitespace-nowrap">
-                You're the first here
+        {/* Live Closed Captions Overlay */}
+        {captionsOn && api.captions.length > 0 && (
+          <div className="pointer-events-none absolute bottom-24 inset-x-4 z-30 flex justify-center">
+            <div className="max-w-2xl rounded-2xl bg-black/85 px-4 py-2 text-center text-sm font-medium text-white shadow-xl backdrop-blur border border-white/10 animate-fade-in">
+              <span className="text-brand-bright font-semibold mr-2">
+                {api.captions[api.captions.length - 1].name}:
+              </span>
+              <span>{api.captions[api.captions.length - 1].text}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Google Meet-style "Your meeting's ready" instant card */}
+        {api.status === 'in-call' && showReadyCard && Object.keys(api.remotes).length === 0 && (
+          <div className="pointer-events-auto absolute bottom-24 left-4 z-30 w-80 rounded-2xl border border-white/15 bg-ink-900/95 p-4 shadow-pop backdrop-blur animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Your meeting's ready</h3>
+              <button
+                onClick={() => setShowReadyCard(false)}
+                className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                title="Dismiss"
+              >
+                <XIcon size={14} />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-zinc-400">
+              Share this meeting link with others you want in the meeting:
+            </p>
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-ink-850 px-3 py-2 border border-white/10">
+              <span className="font-mono text-xs text-zinc-300 truncate">
+                {inviteLink}
               </span>
               <button
                 onClick={copyInvite}
-                className="flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-deep"
+                className="shrink-0 text-brand-bright hover:text-white"
+                title="Copy link"
               >
-                <CopyIcon size={13} />
-                Copy link
+                {copied ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
               </button>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={copyInvite}
+                className="flex-1 rounded-xl bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-deep transition"
+              >
+                {copied ? 'Copied!' : 'Copy link'}
+              </button>
+              {typeof navigator !== 'undefined' && 'share' in navigator && (
+                <button
+                  onClick={() => {
+                    navigator.share?.({
+                      title: 'Join my Convene meeting',
+                      url: inviteLink,
+                    }).catch(() => undefined);
+                  }}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/10 transition"
+                >
+                  Share
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -453,6 +739,14 @@ export default function MeetingRoom({
           }
           onToggleHand={api.toggleHand}
           onSendReaction={api.sendReaction}
+          captionsOn={captionsOn}
+          onToggleCaptions={toggleCaptions}
+          recording={recording}
+          onToggleRecording={toggleRecording}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onTogglePip={togglePip}
+          notesOpen={api.notesOpen}
+          onToggleNotes={toggleNotes}
           peopleOpen={api.peopleOpen}
           onTogglePeople={togglePeople}
           handCount={api.handCount}
@@ -469,6 +763,9 @@ export default function MeetingRoom({
           onEndMeeting={() => setConfirm({ kind: 'end' })}
           onCopyInvite={copyInvite}
           onLeave={() => {
+            if (recording && mediaRecorderRef.current) {
+              mediaRecorderRef.current.stop();
+            }
             api.leave();
             onExit();
           }}
@@ -484,16 +781,23 @@ export default function MeetingRoom({
           setTab={(t) => {
             if (t === 'chat') {
               api.setPeopleOpen(false);
+              api.setNotesOpen(false);
               api.setChatOpen(true);
               api.markChatRead();
+            } else if (t === 'notes') {
+              api.setPeopleOpen(false);
+              api.setChatOpen(false);
+              api.setNotesOpen(true);
             } else {
               api.setChatOpen(false);
+              api.setNotesOpen(false);
               api.setPeopleOpen(true);
             }
           }}
           onClose={() => {
             api.setPeopleOpen(false);
             api.setChatOpen(false);
+            api.setNotesOpen(false);
           }}
           onConfirmRemove={(id, targetName) =>
             setConfirm({ kind: 'remove', targetId: id, targetName })
@@ -501,6 +805,16 @@ export default function MeetingRoom({
           onConfirmMuteAll={() => setConfirm({ kind: 'mute-all' })}
         />
       )}
+
+      {/* ---------- Device Settings Modal ---------- */}
+      <DeviceSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSelectMic={(deviceId) => api.switchMic(deviceId)}
+        onSelectCam={(deviceId) => api.switchCam(deviceId)}
+        currentMicId={api.activeMicId}
+        currentCamId={api.activeCamId}
+      />
 
       {/* ---------- confirm dialogs ---------- */}
       <ConfirmDialog

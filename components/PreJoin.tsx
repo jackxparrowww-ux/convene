@@ -41,6 +41,11 @@ export default function PreJoin({
   onBack: () => void;
 }) {
   const [name, setName] = useState('');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('convene_username');
+    if (saved) setName(saved);
+  }, []);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [audioOn, setAudioOn] = useState(true);
   const [videoOn, setVideoOn] = useState(true);
@@ -224,6 +229,9 @@ export default function PreJoin({
     if (!clean) {
       nameRef.current?.focus();
       return;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('convene_username', clean);
     }
     // Transfer stream ownership to the meeting before unmounting.
     joiningRef.current = true;
