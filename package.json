@@ -1,0 +1,35 @@
+{
+  "dependencies": {
+    "next": "^14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "socket.io": "4.7.5",
+    "socket.io-client": "4.7.5"
+  },
+  "description": "Convene — self-hosted browser video conferencing. No downloads, no accounts for guests.",
+  "devDependencies": {
+    "@types/node": "20.12.0",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "10.4.19",
+    "postcss": "8.4.40",
+    "puppeteer": "22.12.1",
+    "tailwindcss": "3.4.10",
+    "typescript": "5.5.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "name": "convene",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "node server.js",
+    "smoke:call": "node scripts/smoke-call.mjs",
+    "smoke:signal": "node scripts/smoke-signal.mjs",
+    "start": "NODE_ENV=production node server.js",
+    "typecheck": "tsc --noEmit",
+    "smoke:media": "node scripts/smoke-media.mjs"
+  },
+  "version": "1.0.0"
+}

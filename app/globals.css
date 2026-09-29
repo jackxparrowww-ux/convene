@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+  background: #0a0a0c;
+}
+
+/* Slim dark scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2c2c34 transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2c2c34;
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Mirrored self preview (like looking in a mirror) */
+.mirror {
+  transform: scaleX(-1);
+}
+
+/* Reaction float layer should never steal clicks */
+.reaction-layer {
+  pointer-events: none;
+}
+
+/* Landing hero mock tiles */
+@keyframes heroSpeak {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.9);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.25);
+  }
+}
+.hero-speaking {
+  animation: heroSpeak 2.4s ease-in-out infinite;
+}
+
+@keyframes heroFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-90px);
+    opacity: 0;
+  }
+}
+.hero-reaction {
+  animation: heroFloat 3.2s ease-out infinite;
+}
+
+@keyframes softPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.soft-pulse {
+  animation: softPulse 2s ease-in-out infinite;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .hero-speaking,
+  .hero-reaction,
+  .soft-pulse {
+    animation: none;
+  }
+}
