@@ -1,13 +1,13 @@
 @echo off
-setlocal
-title Convene - Browser Video Meetings
+setlocal enabledelayedexpansion
+title Convene - High Performance Video Meetings
 
 echo ===================================================
-echo             Starting Convene Video Meetings
+echo     Convene Video Meetings - Fast Production Mode
 echo ===================================================
 echo.
 
-:: Check Node.js
+:: 1. Check Node.js
 where node >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] Node.js is not installed or not in your PATH.
@@ -16,26 +16,39 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Check if node_modules exists, install if needed
+:: 2. Check dependencies
 if not exist "node_modules\" (
-    echo [INFO] Dependencies not found. Running npm install...
+    echo [INFO] Dependencies not found. Installing packages...
     call npm install
     if %errorlevel% neq 0 (
-        echo [ERROR] npm install failed. Please check the logs.
+        echo [ERROR] npm install failed.
         pause
         exit /b 1
     )
 )
 
-:: Auto-open browser after server boots
-echo [INFO] Starting Convene server at http://localhost:3000 ...
-start "" cmd /c "timeout /t 3 /nobreak >nul & start http://localhost:3000"
+:: 3. Check production build
+if not exist ".next\" (
+    echo [INFO] Optimized production build not found. Building now...
+    call npm run build
+    if %errorlevel% neq 0 (
+        echo [ERROR] Production build failed.
+        pause
+        exit /b 1
+    )
+)
 
-:: Start the Next.js + Socket.io server
-npm run dev
+:: 4. Auto-open browser
+echo.
+echo [INFO] Starting Convene high-speed production server...
+echo [INFO] Opening http://localhost:3000 in your browser...
+start "" cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:3000"
+
+:: 5. Run the high-performance server
+node server.js --production
 
 if %errorlevel% neq 0 (
     echo.
-    echo [ERROR] Convene exited with an error.
+    echo [ERROR] Convene exited with an error code %errorlevel%.
     pause
 )

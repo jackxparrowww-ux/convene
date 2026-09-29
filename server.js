@@ -12,10 +12,18 @@
 
 const { createServer } = require('http');
 const { parse } = require('url');
+const fs = require('fs');
+const path = require('path');
 const next = require('next');
 const { Server } = require('socket.io');
 
-const dev = process.env.NODE_ENV !== 'production';
+const isProdFlag = process.argv.includes('--production') || process.argv.includes('-p');
+const hasBuild = fs.existsSync(path.join(__dirname, '.next'));
+const dev = process.env.NODE_ENV === 'development'
+  ? true
+  : isProdFlag || process.env.NODE_ENV === 'production'
+    ? false
+    : !hasBuild;
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 
@@ -59,6 +67,10 @@ const ALLOWED_REACTIONS = ['👍', '❤️', '😂', '👏', '🎉', '😮', '�
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
+      // Never let Next.js handle Socket.io engine requests!
+      if (req.url && req.url.startsWith('/socket.io/')) {
+        return;
+      }
       // Baseline security headers on every response.
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -71,7 +83,7 @@ app.prepare().then(() => {
           "img-src 'self' data: blob:; " +
           "media-src 'self' blob:; " +
           "font-src 'self' data:; " +
-          'connect-src \'self\' ws: wss:;'
+          "connect-src 'self' ws: wss:;"
       );
       const parsedUrl = parse(req.url, true);
       await handle(req, res, parsedUrl);
@@ -83,13 +95,8 @@ app.prepare().then(() => {
   });
 
   const io = new Server(server, {
-    // Same-origin in production; permissive only for local dev.
-    // Set ALLOWED_ORIGIN for cross-origin deployments (e.g. behind a proxy).
-    cors: dev
-      ? { origin: '*' }
-      : process.env.ALLOWED_ORIGIN
-        ? { origin: process.env.ALLOWED_ORIGIN }
-        : undefined,
+    cors: { origin: '*' },
+    transports: ['websocket', 'polling'],
     maxHttpBufferSize: 1e6,
   });
 
@@ -174,6 +181,7 @@ app.prepare().then(() => {
           participant: publicParticipant(participant),
           hostId: room.hostId,
         });
+      console.log(`[convene] participant ${socket.id} (${cleanName}) joined room ${id} (${room.participants.size} active)`);
     });
 
     function leaveRoom() {

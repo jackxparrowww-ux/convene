@@ -27,7 +27,7 @@
     "dev": "node server.js",
     "smoke:call": "node scripts/smoke-call.mjs",
     "smoke:signal": "node scripts/smoke-signal.mjs",
-    "start": "NODE_ENV=production node server.js",
+    "start": "node server.js --production",
     "typecheck": "tsc --noEmit",
     "smoke:media": "node scripts/smoke-media.mjs"
   },

@@ -717,25 +717,56 @@ export function useMeeting(opts: JoinOpts) {
   };
 
   useEffect(() => {
-    const socket: Socket = io();
+    const socket: Socket = io({
+      transports: ['websocket', 'polling'],
+      upgrade: true,
+      reconnection: true,
+      reconnectionAttempts: 20,
+      reconnectionDelay: 400,
+      reconnectionDelayMax: 1500,
+      timeout: 8000,
+      forceNew: true,
+    });
     socketRef.current = socket;
 
-    socket.on('connect', () => {
+    let hasJoined = false;
+
+    const emitJoin = () => {
       selfIdRef.current = socket.id || '';
       setSelfId(socket.id || '');
-      setStatus((s) => (s === 'in-call' ? 'in-call' : 'connecting'));
       socket.emit('join-room', {
         roomId,
         name: nameRef.current,
         hostKey: hostKeyRef.current || undefined,
       });
+    };
+
+    if (socket.connected) {
+      emitJoin();
+    }
+
+    socket.on('connect', () => {
+      emitJoin();
     });
+
+    socket.on('connect_error', (err) => {
+      console.warn('[convene] socket connection error:', err);
+    });
+
+    // Auto-retry emit if room-state is delayed (e.g. server busy or cold boot)
+    const joinRetryTimer = setInterval(() => {
+      if (!hasJoined && socket.connected) {
+        emitJoin();
+      }
+    }, 1200);
 
     socket.on('disconnect', () => {
       setStatus((s) => (s === 'in-call' ? 'reconnecting' : s));
     });
 
     socket.on('room-state', (data: { participants: RemoteParticipant[]; hostId: string | null }) => {
+      hasJoined = true;
+      clearInterval(joinRetryTimer);
       const L = logicRef.current;
       // Fresh state: drop any stale peer connections (covers rejoin after reconnect).
       for (const peerId of [...peersRef.current.keys()]) L.cleanupPeer(peerId);
@@ -849,6 +880,7 @@ export function useMeeting(opts: JoinOpts) {
     });
 
     return () => {
+      clearInterval(joinRetryTimer);
       logicRef.current.cleanupAll();
       const s = localStreamRef.current;
       if (s) for (const t of s.getTracks()) t.stop();

@@ -243,9 +243,16 @@ export default function MeetingRoom({
 
   if (api.status === 'connecting') {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center bg-ink-950">
+      <div className="flex h-dvh flex-col items-center justify-center bg-ink-950 px-4 text-center">
         <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-brand" />
-        <p className="mt-5 text-sm text-zinc-400">Joining meeting…</p>
+        <p className="mt-5 text-sm font-medium text-zinc-300">Joining meeting…</p>
+        <p className="mt-1 text-xs text-zinc-500">Connecting to real-time mesh signaling...</p>
+        <button
+          onClick={onExit}
+          className="mt-6 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-xs font-medium text-zinc-400 hover:bg-white/10 hover:text-white transition"
+        >
+          Cancel & Return
+        </button>
       </div>
     );
   }
